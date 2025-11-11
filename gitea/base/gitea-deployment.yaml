@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitea
+  namespace: gitea
+  labels:
+    app: gitea-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gitea-app
+  template:
+    metadata:
+      labels:
+        app: gitea-app
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "gitea-role"
+        vault.hashicorp.com/agent-inject-secret-dbcreds: "gitea/config/data/gitea"
+        vault.hashicorp.com/agent-inject-template-dbcreds: |
+          {{- with secret "gitea/config/data/gitea" -}}
+          export DB_NAME="{{ .Data.data.psql_db }}"
+          export DB_USER="{{ .Data.data.psql_user }}"
+          export DB_PASSWORD="{{ .Data.data.psql_password }}"
+          {{- end }}
+    spec:
+      securityContext:
+        fsGroup: 1000
+        runAsUser: 1000
+        runAsGroup: 1000
+      serviceAccountName: gitea-sa
+      containers:
+        - name: gitea
+          image: docker.gitea.com/gitea:1.25.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              name: http
+            - containerPort: 22
+              name: ssh
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              # wait until the injector writes the secrets file (optional timeout)
+              for i in 0 1 2 3 4 5; do
+                if [ -f /vault/secrets/dbcreds ]; then break; fi
+                sleep 1
+              done
+              # source the file to populate env vars and exec Gitea
+              . /vault/secrets/dbcreds
+              exec /usr/local/bin/gitea web
+          env:
+            - name: USER_UID
+              value: "1000"
+            - name: USER_GID
+              value: "1000"
+            - name: DB_TYPE
+              value: postgres
+            - name: DB_HOST
+              value: gitea-psql-service:5432
+            - name: GITEA__server__ROOT_URL
+              value: http://gitea.internal:3000/
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /user/login
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1024Mi"

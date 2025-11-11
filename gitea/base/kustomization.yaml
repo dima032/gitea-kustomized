@@ -1,0 +1,9 @@
+resources:
+  - namespace.yaml
+  - gitea-deployment.yaml
+  - serviceaccount.yaml
+  - psql-pv.yaml
+  - psql-statefulset.yaml
+  - psql-service.yaml
+  - gitea-service.yaml
+  - ingress.yaml

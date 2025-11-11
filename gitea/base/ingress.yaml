@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gitea-ingress
+  namespace: gitea
+  annotations:
+      kubernetes.io/ingress.class: traefik
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  tls:
+    - hosts:
+      - gitea.internal
+  rules:
+    - host: gitea.internal
+      http:
+        paths: 
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: gitea-server
+              port:
+                number: 3000
