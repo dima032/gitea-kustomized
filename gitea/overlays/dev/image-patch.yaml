@@ -1,0 +1,10 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitea
+spec:
+  template:
+    spec:
+      containers:
+        - name: gitea
+          image: docker.gitea.com/gitea:1.25.1

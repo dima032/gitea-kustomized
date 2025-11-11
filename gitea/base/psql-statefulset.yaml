@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: gitea-psql
+  namespace: gitea
+  labels:
+    app: gitea-psql
+spec:
+  serviceName: gitea-psql-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gitea-psql
+  template:
+    metadata:
+      labels:
+        app: gitea-psql
+    spec:
+      containers:
+        - name: gitea-psql
+          image: postgres:15-alpine
+          ports:
+              - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: gitea-secrets
+                  key: psql_user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: gitea-secrets
+                  key: psql_password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: gitea-secrets
+                  key: psql_db
+          volumeMounts:
+            - name: gitea-psql-pv
+              mountPath: /var/lib/gitea/psql-data
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+  volumeClaimTemplates:
+    - metadata:
+        name: gitea-psql-pv
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 5Gi
